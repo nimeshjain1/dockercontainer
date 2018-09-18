@@ -1,0 +1,86 @@
+apiVersion: apps/v1beta2
+kind: Deployment
+metadata:
+  name: {{ template "centosicds.fullname" . }}
+  labels:
+    app: {{ template "centosicds.name" . }}
+    chart: {{ template "centosicds.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ template "centosicds.name" . }}
+      release: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: {{ template "centosicds.name" . }}
+        release: {{ .Release.Name }}
+    spec:
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+          - name: SERVER_NAME
+            value: https://api.chef.io/organizations/nimeshj_chef
+          - name: RUNLIST
+            value: apache_manual
+          volumeMounts:
+           - mountPath: /etc/cheftest
+             name: mysecret 
+             subPath: clientfiles
+#             readOnly: true
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 60
+            timeoutSeconds: 30
+            periodSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 60
+            timeoutSeconds: 30
+            periodSeconds: 5
+#          livenessProbe:
+#               command:
+#               - ps -ax | grep httpd
+#              
+#          readinessProbe:
+#               command:
+#               - file
+#               - /run/httpd/httpd.pid
+#
+          resources:
+{{ toYaml .Values.resources | indent 12 }}
+    {{- with .Values.nodeSelector }}
+      nodeSelector:
+{{ toYaml . | indent 8 }}
+    {{- end }}
+    {{- with .Values.affinity }}
+      affinity:
+{{ toYaml . | indent 8 }}
+    {{- end }}
+    {{- with .Values.tolerations }}
+      tolerations:
+{{ toYaml . | indent 8 }}
+    {{- end }}
+      volumes:
+       - name: mysecret
+#         secret:
+#           secretName: validation
+#           items:
+#           - key: validation.pem
+#             path: ~/nimesh/latestpem/validation.pem
+         nfs:
+           path: /opt/nimesh
+           server: 192.168.2.2
